@@ -37,6 +37,8 @@ export interface ScanFacts {
   urlscan?: UrlscanFacts | null;
   /** 도메인이 유명 브랜드와 유사한 경우의 브랜드명 힌트 (예: "instagram") */
   brand_impersonation_hint?: string | null;
+  /** VirusTotal 카테고리에서 청소년에게 부적절한 콘텐츠 유형을 찾은 경우의 힌트 (예: "도박"). 계정 탈취 위험과는 별개의 신호다. */
+  harmful_content_hint?: string | null;
 }
 
 /** 위험도 산출 결과 (PRD 5.5). lib/score.ts의 순수 함수가 계산한다. */

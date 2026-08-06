@@ -17,6 +17,9 @@ const SYSTEM_PROMPT = `너는 청소년에게 인터넷 링크의 위험을 설�
 - 입력 데이터의 verdict(판정) 값을 바꾸거나 반박하지 않는다. verdict가 "danger"인데 "안전해 보인다"고 쓰면 안 된다.
 - 특정 회사·개인을 범인으로 단정하지 않는다. "이 사이트는 ~로 보인다" 수준으로 서술한다.
 - 데이터가 부족한 항목은 그 항목을 생략한다. 추측으로 채우지 않는다.
+- scan_data에 harmful_content_hint(도박/성인 콘텐츠/불법 복제물 등)가 있고 비밀번호 탈취·악성코드 관련 신호는 없다면,
+  "계정이 털린다", "정보가 유출된다" 같은 피싱 서사를 쓰지 않는다. 대신 "이 사이트는 (해당 콘텐츠) 내용을 담고 있어서
+  청소년에게 맞지 않아요" 식으로, 콘텐츠 자체가 부적절하다는 점을 담담하게 설명한다.
 
 ## 말투
 - 읽는 사람은 13~18세 청소년이다. 중학생이 이해할 수 있는 단어만 쓴다.
@@ -114,13 +117,41 @@ const FALLBACK_TEXT: Record<ScoreResult['verdict'], { summary: string; story: st
   },
 };
 
-/** LLM 호출이 실패했을 때 사용하는 템플릿 폴백 (PRD 부록 C.5, 7.4). score.ts가 계산한 신호를 그대로 근거로 보여준다. */
-export function buildFallbackExplanation(score: ScoreResult): LlmExplanation {
+const HARMFUL_CONTENT_FALLBACK_TIPS = [
+  '이런 링크는 친구가 보내줘도 들어가지 않는 게 안전해요.',
+  '검사가 완벽하지는 않으니 조금이라도 이상하면 누르지 마세요.',
+];
+
+/**
+ * LLM 호출이 실패했을 때 사용하는 템플릿 폴백 (PRD 부록 C.5, 7.4).
+ * score.ts가 계산한 신호를 그대로 근거로 보여준다.
+ *
+ * harmful_content_hint(도박·성인 콘텐츠·불법 복제물)만으로 판정이 나온 경우
+ * — 즉 악성 엔진 탐지나 "비밀번호 입력칸+브랜드 사칭" 같은 계정 탈취 신호가 없는 경우 —
+ * verdict별 기본 문구("계정을 노린다" 뉘앙스)를 그대로 쓰면 사실과 다른 설명이 나간다.
+ * 이 경우에는 콘텐츠 자체가 부적절하다는 별도 문구를 사용한다.
+ */
+export function buildFallbackExplanation(facts: ScanFacts, score: ScoreResult): LlmExplanation {
+  const evidence = score.signals.map((signal) => ({ icon: '•', text: signal.label }));
+
+  const hasAccountTakeoverSignal =
+    (facts.virustotal?.engines_malicious ?? 0) >= 1 ||
+    Boolean(facts.urlscan?.has_password_input && facts.brand_impersonation_hint);
+
+  if (facts.harmful_content_hint && !hasAccountTakeoverSignal) {
+    return {
+      summary: `${facts.harmful_content_hint} 콘텐츠가 있는 사이트예요`,
+      story: `이 사이트는 ${facts.harmful_content_hint} 관련 내용을 담고 있어요. 계정이 털리는 것과는 다르지만, 청소년이 보기에 맞지 않는 내용이라 들어가지 않는 걸 권해요.`,
+      evidence,
+      tips: HARMFUL_CONTENT_FALLBACK_TIPS,
+    };
+  }
+
   const fallback = FALLBACK_TEXT[score.verdict];
   return {
     summary: fallback.summary,
     story: fallback.story,
-    evidence: score.signals.map((signal) => ({ icon: '•', text: signal.label })),
+    evidence,
     tips: fallback.tips,
   };
 }
@@ -134,7 +165,7 @@ export async function generateExplanation(facts: ScanFacts, score: ScoreResult):
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
     console.error('ANTHROPIC_API_KEY가 설정되지 않았어요. 폴백 설명을 사용해요.');
-    return buildFallbackExplanation(score);
+    return buildFallbackExplanation(facts, score);
   }
 
   const client = new Anthropic({ apiKey });
@@ -147,7 +178,7 @@ export async function generateExplanation(facts: ScanFacts, score: ScoreResult):
       return await callLlmOnce(client, facts, score);
     } catch (secondError) {
       console.error('LLM 호출 2차 실패, 폴백으로 전환해요:', secondError);
-      return buildFallbackExplanation(score);
+      return buildFallbackExplanation(facts, score);
     }
   }
 }

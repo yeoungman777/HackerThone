@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { normalizeUrl } from '@/lib/normalize';
 import { fetchVirusTotalFacts } from '@/lib/providers/virustotal';
 import { fetchUrlscanFacts } from '@/lib/providers/urlscan';
-import { calculateScore, detectBrandImpersonationHint } from '@/lib/score';
+import { calculateScore, detectBrandImpersonationHint, detectHarmfulContentHint } from '@/lib/score';
 import { generateExplanation } from '@/lib/llm';
 import type { ScanFacts, ScanResult } from '@/lib/types';
 
@@ -48,6 +48,12 @@ export async function POST(request: Request) {
     console.error('urlscan.io 조회 실패:', urlscanSettled.reason);
   }
 
+  // 둘 다 실패하면 근거가 하나도 없는 채로 점수를 계산해 "안전"으로 잘못 응답할 수 있다
+  // (PRD 7.4 "둘 다 실패" 케이스). 이 경우 판정 자체를 내지 않고 에러로 응답한다.
+  if (virustotalSettled.status === 'rejected' && urlscanSettled.status === 'rejected') {
+    return NextResponse.json({ error: 'scan_unavailable' }, { status: 502 });
+  }
+
   const facts: ScanFacts = {
     url_normalized: normalized.url,
     domain: hostname,
@@ -57,6 +63,7 @@ export async function POST(request: Request) {
     virustotal,
     urlscan,
     brand_impersonation_hint: detectBrandImpersonationHint(hostname),
+    harmful_content_hint: detectHarmfulContentHint(virustotal?.categories ?? []),
   };
 
   // 판정은 코드가 계산한다 — LLM에게 "위험한가?"를 묻지 않는다 (CLAUDE.md 절대 규칙 1).

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { calculateScore, detectBrandImpersonationHint } from './score';
+import { calculateScore, detectBrandImpersonationHint, detectHarmfulContentHint } from './score';
 import type { ScanFacts } from './types';
 
 function makeFacts(overrides: Partial<ScanFacts> = {}): ScanFacts {
@@ -200,6 +200,52 @@ describe('calculateScore', () => {
     const result = calculateScore(makeFacts({ virustotal: null, urlscan: null, domain_age_days: null }));
     expect(result.total).toBe(0);
     expect(result.verdict).toBe('safe');
+  });
+
+  it('유해 콘텐츠 힌트가 있으면 +20점을 부여해 caution이 된다', () => {
+    const result = calculateScore(makeFacts({ harmful_content_hint: '도박' }));
+    expect(result.total).toBe(20);
+    expect(result.verdict).toBe('caution');
+    expect(result.signals[0].label).toContain('도박');
+  });
+
+  it('유해 콘텐츠 힌트가 악성 엔진 탐지와 겹치면 danger로 올라갈 수 있다', () => {
+    const result = calculateScore(
+      makeFacts({
+        harmful_content_hint: '성인 콘텐츠',
+        virustotal: { engines_total: 70, engines_malicious: 3, engines_suspicious: 0, categories: [] },
+      })
+    );
+    expect(result.total).toBe(90);
+    expect(result.verdict).toBe('danger');
+  });
+
+  it('유해 콘텐츠 힌트가 없으면(null) 신호를 만들지 않는다', () => {
+    const result = calculateScore(makeFacts({ harmful_content_hint: null }));
+    expect(result.total).toBe(0);
+  });
+});
+
+describe('detectHarmfulContentHint', () => {
+  it('도박 관련 카테고리를 감지한다', () => {
+    expect(detectHarmfulContentHint(['gambling'])).toBe('도박');
+    expect(detectHarmfulContentHint(['Online Casino'])).toBe('도박');
+  });
+
+  it('성인 콘텐츠 카테고리를 감지한다', () => {
+    expect(detectHarmfulContentHint(['Pornography'])).toBe('성인 콘텐츠');
+  });
+
+  it('불법 복제물 카테고리를 감지한다', () => {
+    expect(detectHarmfulContentHint(['Piracy/Copyright'])).toBe('불법 복제물');
+  });
+
+  it('일치하는 카테고리가 없으면 null을 반환한다', () => {
+    expect(detectHarmfulContentHint(['phishing', 'malware'])).toBeNull();
+  });
+
+  it('카테고리가 비어 있으면 null을 반환한다', () => {
+    expect(detectHarmfulContentHint([])).toBeNull();
   });
 });
 

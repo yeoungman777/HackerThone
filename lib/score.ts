@@ -33,6 +33,32 @@ export function detectBrandImpersonationHint(domain: string): string | null {
   return null;
 }
 
+// VirusTotal categories 필드는 벤더마다 영문 표현이 제각각이라(예: "gambling", "Adult Content"),
+// 부분 일치 키워드로 느슨하게 매칭한다. 계정 탈취·악성코드 위험과는 성격이 다른 신호이므로
+// score.ts에서 별도 가중치로, llm.ts 프롬프트에서 별도 서사로 다룬다.
+interface HarmfulCategoryRule {
+  keywords: string[];
+  label: string;
+}
+
+const HARMFUL_CATEGORY_RULES: HarmfulCategoryRule[] = [
+  { keywords: ['gambling', 'casino', 'betting'], label: '도박' },
+  { keywords: ['pornography', 'adult content', 'adult', 'porn'], label: '성인 콘텐츠' },
+  { keywords: ['piracy', 'copyright infringement', 'warez', 'illegal software'], label: '불법 복제물' },
+];
+
+/** VirusTotal 카테고리 목록에서 청소년에게 부적절한 콘텐츠 유형을 찾는다. 일치하는 항목이 없으면 null. */
+export function detectHarmfulContentHint(categories: string[]): string | null {
+  const lowerCategories = categories.map((category) => category.toLowerCase());
+  for (const rule of HARMFUL_CATEGORY_RULES) {
+    const matched = lowerCategories.some((category) =>
+      rule.keywords.some((keyword) => category.includes(keyword))
+    );
+    if (matched) return rule.label;
+  }
+  return null;
+}
+
 /** PRD 5.5 위험도 산출 규칙. 입력 데이터로부터 총점·판정·기여 신호를 계산하는 순수 함수. */
 export function calculateScore(facts: ScanFacts): ScoreResult {
   const signals: ScoreResult['signals'] = [];
@@ -61,6 +87,13 @@ export function calculateScore(facts: ScanFacts): ScoreResult {
   const redirectCount = facts.urlscan?.redirect_count ?? 0;
   if (redirectCount >= 3) {
     signals.push({ label: '다른 주소로 여러 번 이동했어요', weight: 10 });
+  }
+
+  if (facts.harmful_content_hint) {
+    signals.push({
+      label: `청소년에게 맞지 않는 내용(${facts.harmful_content_hint})이 있을 수 있어요`,
+      weight: 20,
+    });
   }
 
   const total = Math.min(
