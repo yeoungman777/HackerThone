@@ -1,36 +1,89 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 눌러도돼? (click-safe)
 
-## Getting Started
+- 작성일: 2026-08-06
+- 최종 수정일: 2026-08-06
+- 버전: v1.1
 
-First, run the development server:
+청소년이 받은 의심스러운 링크를 검사하고, 왜 위험한지 쉬운 말로 설명하고,
+이미 눌러버린 경우 지금 뭘 해야 하는지 안내하는 웹 서비스입니다.
+
+## 이게 왜 필요한가요
+
+인스타그램 DM, 디스코드 초대, 카카오톡 오픈채팅으로 낯선 링크를 받는 건
+청소년에게 일상적인 일입니다. 기프트카드 당첨, 팔로워 늘려주기, 로그인
+화면을 위장한 계정 탈취 페이지처럼요. 문제는 눌러보기 전엔 그게 진짜인지
+가짜인지 알 방법이 마땅치 않다는 겁니다.
+
+**눌러도돼?**는 링크를 붙여넣기만 하면:
+
+1. **검사한다** — VirusTotal(보안 엔진 대조)과 urlscan.io(격리된 가상
+   브라우저로 실제 접속)를 이용해 그 링크의 실체를 파악합니다.
+2. **설명한다** — "38개 엔진 중 4개 malicious" 같은 전문 용어 대신,
+   "이 사이트는 만들어진 지 3일밖에 안 됐어요"처럼 중학생도 이해할 수 있는
+   말로 왜 위험한지(또는 안전한지) 알려줍니다.
+3. **대처법을 안내한다** — 이미 링크를 눌러버렸다면, 어느 플랫폼에서
+   무엇을 했는지에 따라 지금 순서대로 뭘 해야 하는지 체크리스트로
+   보여줍니다.
+
+## 누구를 위한 서비스인가요
+
+- **1차 대상**: 중·고등학생 (13~18세)
+- **2차 대상**: 자녀가 받은 링크를 대신 확인해보고 싶은 보호자
+
+로그인이나 회원가입 없이 바로 쓸 수 있고, 검사한 URL은 저장하지 않습니다.
+이미 겁먹었거나 피해를 본 사람이 볼 수도 있는 화면이라, 책망하거나
+겁주는 톤을 쓰지 않습니다.
+
+## 화면 구성
+
+| 화면 | 내용 |
+|---|---|
+| 입력 | URL 하나만 붙여넣고 "검사하기" |
+| 검사 중 | 4단계(주소 확인 → 보안 데이터베이스 대조 → 가상 환경 접속 → 결과 정리) 진행 표시 |
+| 결과 | 🟢안전 / 🟡주의 / 🔴위험 배지, "눌렀다면 벌어졌을 일" 서사, 블러 처리된 실제 스크린샷, 판단 근거, 다음에 스스로 알아보는 팁 |
+| 대처 | 플랫폼(인스타/디스코드/카카오톡)과 상황(비밀번호 입력함/앱 설치함/사진 보냄 등)을 고르면 맞춤 체크리스트 |
+
+## 설계 원칙
+
+- **판정은 코드가, 설명은 LLM이** — 위험도 점수는 `lib/score.ts`의 순수
+  함수가 계산합니다. LLM에게 "이 URL이 위험한가?"를 묻지 않고, 이미 나온
+  판정을 사람 말로 옮기는 역할만 맡깁니다.
+- **원본 페이지 콘텐츠를 LLM에 넣지 않는다** — 프롬프트 인젝션을 막기 위해
+  urlscan.io/VirusTotal이 반환한 구조화된 필드값만 LLM에 전달합니다.
+- **서버가 대상 URL에 직접 접속하지 않는다** — 실제 접속은 urlscan.io가
+  격리된 가상 브라우저로 대행합니다.
+- **API 키는 서버 사이드에서만** — 클라이언트 번들에 노출되지 않습니다.
+- **사용자가 입력한 URL은 로그·DB에 남기지 않습니다.**
+
+자세한 배경과 요구사항은 [`PRD.md`](./PRD.md)를 참고하세요.
+
+## 기술 스택
+
+Next.js 15 (App Router) · TypeScript · Tailwind CSS · `@anthropic-ai/sdk` ·
+Zod · Vitest · Vercel
+
+## 시작하기
 
 ```bash
+npm install
+cp .env.local.example .env.local   # URLSCAN_API_KEY / VIRUSTOTAL_API_KEY / ANTHROPIC_API_KEY 채우기
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+[http://localhost:3000](http://localhost:3000) 에서 확인할 수 있습니다.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### 주요 명령어
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm run dev      # 개발 서버
+npm run build    # 프로덕션 빌드 검증 (커밋 전 필수)
+npx vitest run   # 단위 테스트
+npx eslint .     # 린트
+```
 
-## Learn More
+## 변경 이력
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+| 버전 | 날짜 | 변경 내용 |
+|------|------|-----------|
+| v1.1 | 2026-08-06 | create-next-app 기본 README를 프로젝트 소개 문서로 교체 |
+| v1.0 | (초기) | `create-next-app`이 생성한 기본 안내문 |
