@@ -27,16 +27,20 @@ export default function Home() {
 
   return (
     <div className="flex min-h-[80vh] flex-col justify-center gap-10">
-      <div className="text-center">
-        <h1 className="text-3xl font-bold">눌러도돼?</h1>
-        <p className="mt-3 text-foreground/70">
-          받은 링크, 누르기 전에
-          <br />
-          여기서 먼저 확인하세요
+      <div className="animate-rise-in text-center">
+        <h1 className="text-4xl font-extrabold tracking-tight text-blue-600">
+          CheckLink
+        </h1>
+        <p className="mt-3 text-base font-bold text-foreground">
+          URL을 입력하시면 안전한 주소인지 확인해드립니다.
         </p>
       </div>
 
-      <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+      <form
+        onSubmit={handleSubmit}
+        className="animate-rise-in flex flex-col gap-3"
+        style={{ animationDelay: "80ms" }}
+      >
         <input
           autoFocus
           type="text"
@@ -55,7 +59,10 @@ export default function Home() {
         </button>
       </form>
 
-      <div className="border-t border-foreground/10 pt-6 text-center">
+      <div
+        className="animate-rise-in border-t border-foreground/10 pt-6 text-center"
+        style={{ animationDelay: "160ms" }}
+      >
         <Link
           href="/recover"
           className="text-sm font-medium text-foreground/70 underline underline-offset-4"
@@ -64,7 +71,10 @@ export default function Home() {
         </Link>
       </div>
 
-      <p className="text-center text-xs text-foreground/40">
+      <p
+        className="animate-rise-in text-center text-xs text-foreground/40"
+        style={{ animationDelay: "220ms" }}
+      >
         검사 결과는 저장되지 않아요
       </p>
     </div>

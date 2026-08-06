@@ -6,6 +6,7 @@ import ScanProgress from "@/components/ScanProgress";
 import VerdictBadge from "@/components/VerdictBadge";
 import BlurredScreenshot from "@/components/BlurredScreenshot";
 import EvidenceList from "@/components/EvidenceList";
+import Reveal from "@/components/Reveal";
 import { NORMALIZE_ERROR_MESSAGES, type NormalizeReason } from "@/lib/normalize";
 import type { ScanResult } from "@/lib/types";
 
@@ -154,13 +155,23 @@ export default function ResultPage() {
 
   if (!result) return null;
 
-  const { score, explanation, facts, partial } = result;
+  const { score, explanation, facts, legalNotice, partial } = result;
+  // "이미 눌렀어요" 대처 안내는 실제로 위험하거나(danger) 법적 제한 대상(content_restricted)일 때만
+  // 보여준다 — 안전하거나 단순 주의 수준에서는 대처할 사고 자체가 없다.
+  const showRecoveryCta = score.verdict === "danger" || score.verdict === "content_restricted";
+  const screenshotUrl = facts.urlscan?.screenshot_url ?? facts.fallback_screenshot_url;
 
   return (
     <div className="flex flex-col gap-8 py-6">
       <VerdictBadge verdict={score.verdict} />
 
-      <p className="text-center text-lg font-bold">{explanation.summary}</p>
+      {legalNotice && (
+        <p className="animate-rise-in rounded-xl bg-orange-50 px-4 py-3 text-center text-sm leading-relaxed text-orange-800 dark:bg-orange-950 dark:text-orange-200">
+          {legalNotice}
+        </p>
+      )}
+
+      <p className="animate-rise-in text-center text-lg font-bold">{explanation.summary}</p>
 
       {partial && (
         <p className="rounded-lg bg-foreground/5 px-3 py-2 text-center text-xs text-foreground/60">
@@ -168,32 +179,32 @@ export default function ResultPage() {
         </p>
       )}
 
-      <section className="flex flex-col gap-3">
+      <Reveal className="flex flex-col gap-3">
         <h2 className="text-sm font-bold text-foreground/50">
-          눌렀다면 벌어졌을 일
+          무슨 사이트냐면...
         </h2>
         <p className="text-sm leading-relaxed">{explanation.story}</p>
-      </section>
+      </Reveal>
 
-      {facts.urlscan?.screenshot_url && (
-        <section className="flex flex-col gap-3">
+      {screenshotUrl && (
+        <Reveal className="flex flex-col gap-3">
           <h2 className="text-sm font-bold text-foreground/50">
             이 페이지의 실제 모습
           </h2>
-          <BlurredScreenshot src={facts.urlscan.screenshot_url} />
-        </section>
+          <BlurredScreenshot src={screenshotUrl} />
+        </Reveal>
       )}
 
-      <section className="flex flex-col gap-3">
+      <Reveal className="flex flex-col gap-3">
         <h2 className="text-sm font-bold text-foreground/50">
           이렇게 판단했어요
         </h2>
         <EvidenceList items={explanation.evidence} />
-      </section>
+      </Reveal>
 
-      <section className="flex flex-col gap-3">
+      <Reveal className="flex flex-col gap-3">
         <h2 className="text-sm font-bold text-foreground/50">
-          다음엔 이렇게 알아봐요
+          TIP을 알려드릴까요?
         </h2>
         <ul className="space-y-2 text-sm">
           {explanation.tips.map((tip, index) => (
@@ -203,22 +214,24 @@ export default function ResultPage() {
             </li>
           ))}
         </ul>
-      </section>
+      </Reveal>
 
-      <div className="flex flex-col gap-2 pt-2">
-        <Link
-          href="/recover"
-          className="w-full rounded-xl bg-blue-600 py-3 text-center text-base font-semibold text-white"
-        >
-          이미 눌렀어요 →
-        </Link>
+      <Reveal className="flex flex-col gap-2 pt-2">
+        {showRecoveryCta && (
+          <Link
+            href="/recover"
+            className="w-full rounded-xl bg-blue-600 py-3 text-center text-base font-semibold text-white"
+          >
+            이미 눌렀어요 →
+          </Link>
+        )}
         <Link
           href="/"
           className="w-full py-2 text-center text-sm text-foreground/50 underline underline-offset-4"
         >
           다른 링크 검사하기
         </Link>
-      </div>
+      </Reveal>
     </div>
   );
 }

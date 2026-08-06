@@ -21,13 +21,17 @@ export interface RecoveryChecklist {
 
 /** 모든 화면 상단에 공통으로 노출하는 안심 문구 (PRD 부록 D.0) */
 export const COMMON_INTRO = [
-  "당신 잘못이 아니에요. 이런 링크는 어른들도 속습니다.",
+  "당신의 잘못이 아닙니다.",
   "지금부터 하나씩 하면 됩니다. 순서대로만 따라오세요.",
 ];
 
 /** 사진을 보냈거나 돈을 보낸 경우 최상단에 우선 노출하는 문구 (PRD 부록 D.0) */
-export const URGENT_NOTICE =
-  '혼자 해결하려고 하지 마세요. 부모님, 선생님 등 믿을 수 있는 어른에게 지금 알리세요. 상대가 "어른에게 말하면 퍼뜨린다"고 해도, 그 말을 따르면 상황은 더 나빠집니다.';
+export const URGENT_NOTICE = [
+  "1초라도 빨리 외부의 도움을 요청하는 것이 가장 좋은 방법이에요.",
+  "혼자 해결하려고 하면 상황이 더 나빠질 수 있어요.",
+  "지금 바로 부모님, 선생님 등 믿을 수 있는 어른에게 알리세요.",
+  '상대가 "말하면 퍼뜨린다"고 협박해도, 그 말을 따르면 상황은 더 나빠져요.',
+].join("\n");
 
 /** 신고·상담 창구 (PRD 부록 D.4, 하단 고정) */
 export const REPORT_CONTACTS: { situation: string; contact: string }[] = [
@@ -203,6 +207,9 @@ const PLATFORM_SECTIONS: Record<RecoveryPlatform, PlatformSections> = {
   instagram: INSTAGRAM,
   discord: DISCORD,
   kakao: KAKAO,
+  // 메시지·인터넷에서 발견은 특정 앱의 계정 메뉴 경로가 없으므로 서비스 공통 대응(OTHER)을 그대로 쓴다.
+  message: OTHER,
+  found_online: OTHER,
   other: OTHER,
 };
 

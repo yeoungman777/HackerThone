@@ -17,9 +17,10 @@ const SYSTEM_PROMPT = `너는 청소년에게 인터넷 링크의 위험을 설�
 - 입력 데이터의 verdict(판정) 값을 바꾸거나 반박하지 않는다. verdict가 "danger"인데 "안전해 보인다"고 쓰면 안 된다.
 - 특정 회사·개인을 범인으로 단정하지 않는다. "이 사이트는 ~로 보인다" 수준으로 서술한다.
 - 데이터가 부족한 항목은 그 항목을 생략한다. 추측으로 채우지 않는다.
-- scan_data에 harmful_content_hint(도박/성인 콘텐츠/불법 복제물 등)가 있고 비밀번호 탈취·악성코드 관련 신호는 없다면,
-  "계정이 털린다", "정보가 유출된다" 같은 피싱 서사를 쓰지 않는다. 대신 "이 사이트는 (해당 콘텐츠) 내용을 담고 있어서
-  청소년에게 맞지 않아요" 식으로, 콘텐츠 자체가 부적절하다는 점을 담담하게 설명한다.
+- verdict가 "content_restricted"인 경우, 이미 "국내 법률에 따라 방송통신심의위원회의 차단 대상"이라는 법적
+  판단이 별도 문구로 사용자에게 먼저 표시된다. 너는 그 판단을 반박하거나 다른 표현으로 재진술하지 않는다.
+  story에는 그 판단에 대한 짧은 부연 설명만 담는다 — 예를 들어 보안 위험 신호 없이도 이런 사이트가 왜
+  문제가 되는지, 왜 청소년에게 맞지 않는지. "계정이 털린다", "정보가 유출된다" 같은 피싱 서사는 쓰지 않는다.
 
 ## 말투
 - 읽는 사람은 13~18세 청소년이다. 중학생이 이해할 수 있는 단어만 쓴다.
@@ -34,7 +35,7 @@ const SYSTEM_PROMPT = `너는 청소년에게 인터넷 링크의 위험을 설�
 
 {
   "summary": "한 줄 요약. 이 링크의 정체를 한 문장으로. 40자 이내.",
-  "story": "이 링크를 눌렀다면 어떤 일이 순서대로 벌어졌을지. 2~4문장. 시간 순서로 서술.",
+  "story": "이 사이트가 어떤 곳인지 설명. 2~4문장. '무슨 사이트냐면...'이라는 제목 아래 보여줄 내용이므로, 미래에 벌어질 일이 아니라 지금 이 사이트의 정체·특징을 설명하는 톤으로 서술.",
   "evidence": [
     { "icon": "🕐", "text": "판단 근거 한 줄. 기술용어 없이." }
   ],
@@ -46,7 +47,9 @@ const SYSTEM_PROMPT = `너는 청소년에게 인터넷 링크의 위험을 설�
 - evidence는 3~5개. 입력 데이터에 실제로 존재하는 항목만.
 - tips는 2~3개.
 - verdict가 "safe"인 경우: story는 "특별히 위험한 점은 발견되지 않았어요" 취지로 쓰되,
-  tips에는 "검사가 완벽하지는 않으니 조금이라도 이상하면 누르지 마세요"를 반드시 포함한다.`;
+  tips에는 "검사가 완벽하지는 않으니 조금이라도 이상하면 누르지 마세요"를 반드시 포함한다.
+- verdict가 "content_restricted"인 경우: summary와 story 모두 이미 표시된 법적 고지 문구와 모순되지
+  않아야 한다. "위험한 사이트"라는 표현 대신 "접속이 제한되는 사이트" 톤을 쓴다.`;
 
 const LlmOutputSchema = z.object({
   summary: z.string().max(60),
@@ -93,7 +96,7 @@ async function callLlmOnce(client: Anthropic, facts: ScanFacts, score: ScoreResu
   return LlmOutputSchema.parse(parsed);
 }
 
-const FALLBACK_TEXT: Record<ScoreResult['verdict'], { summary: string; story: string; tips: string[] }> = {
+const FALLBACK_TEXT: Record<Exclude<ScoreResult['verdict'], 'content_restricted'>, { summary: string; story: string; tips: string[] }> = {
   danger: {
     summary: '위험한 링크로 확인됐어요',
     story: '여러 보안 검사에서 이 링크가 위험하다고 판단했어요. 누르지 마시고, 보낸 사람을 차단하세요.',
@@ -117,8 +120,8 @@ const FALLBACK_TEXT: Record<ScoreResult['verdict'], { summary: string; story: st
   },
 };
 
-const HARMFUL_CONTENT_FALLBACK_TIPS = [
-  '이런 링크는 친구가 보내줘도 들어가지 않는 게 안전해요.',
+const CONTENT_RESTRICTED_FALLBACK_TIPS = [
+  '이런 사이트는 친구가 보내줘도 들어가지 않는 게 안전해요.',
   '검사가 완벽하지는 않으니 조금이라도 이상하면 누르지 마세요.',
 ];
 
@@ -126,24 +129,20 @@ const HARMFUL_CONTENT_FALLBACK_TIPS = [
  * LLM 호출이 실패했을 때 사용하는 템플릿 폴백 (PRD 부록 C.5, 7.4).
  * score.ts가 계산한 신호를 그대로 근거로 보여준다.
  *
- * harmful_content_hint(도박·성인 콘텐츠·불법 복제물)만으로 판정이 나온 경우
- * — 즉 악성 엔진 탐지나 "비밀번호 입력칸+브랜드 사칭" 같은 계정 탈취 신호가 없는 경우 —
- * verdict별 기본 문구("계정을 노린다" 뉘앙스)를 그대로 쓰면 사실과 다른 설명이 나간다.
- * 이 경우에는 콘텐츠 자체가 부적절하다는 별도 문구를 사용한다.
+ * verdict가 content_restricted면 계정 탈취(피싱)와는 다른, 콘텐츠 자체가 국내 법상 접속 제한
+ * 대상이라는 별도 문구를 쓴다 — score.ts가 이미 보안 신호 유무를 판정에 반영했으므로 여기서는
+ * verdict만 보고 분기하면 된다.
  */
 export function buildFallbackExplanation(facts: ScanFacts, score: ScoreResult): LlmExplanation {
   const evidence = score.signals.map((signal) => ({ icon: '•', text: signal.label }));
 
-  const hasAccountTakeoverSignal =
-    (facts.virustotal?.engines_malicious ?? 0) >= 1 ||
-    Boolean(facts.urlscan?.has_password_input && facts.brand_impersonation_hint);
-
-  if (facts.harmful_content_hint && !hasAccountTakeoverSignal) {
+  if (score.verdict === 'content_restricted') {
+    const label = facts.harmful_content_hint ?? '부적절한 콘텐츠';
     return {
-      summary: `${facts.harmful_content_hint} 콘텐츠가 있는 사이트예요`,
-      story: `이 사이트는 ${facts.harmful_content_hint} 관련 내용을 담고 있어요. 계정이 털리는 것과는 다르지만, 청소년이 보기에 맞지 않는 내용이라 들어가지 않는 걸 권해요.`,
+      summary: `${label} 관련 사이트예요`,
+      story: `이 사이트는 ${label} 관련 내용을 담고 있어요. 계정이 털리는 것과는 다르지만, 국내 법률상 접속이 제한되는 유형의 사이트라 들어가지 않는 걸 권해요.`,
       evidence,
-      tips: HARMFUL_CONTENT_FALLBACK_TIPS,
+      tips: CONTENT_RESTRICTED_FALLBACK_TIPS,
     };
   }
 

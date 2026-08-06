@@ -35,18 +35,20 @@ export interface ScanFacts {
   virustotal?: VirusTotalFacts | null;
   /** urlscan.io 호출이 실패했을 수 있으므로 optional/null 허용 */
   urlscan?: UrlscanFacts | null;
+  /** urlscan.io가 실패했을 때(유튜브·구글 등 정책적 차단 포함)만 microlink.io로 대체 시도한 스크린샷 URL */
+  fallback_screenshot_url?: string | null;
   /** 도메인이 유명 브랜드와 유사한 경우의 브랜드명 힌트 (예: "instagram") */
   brand_impersonation_hint?: string | null;
   /** VirusTotal 카테고리에서 청소년에게 부적절한 콘텐츠 유형을 찾은 경우의 힌트 (예: "도박"). 계정 탈취 위험과는 별개의 신호다. */
   harmful_content_hint?: string | null;
 }
 
-/** 위험도 산출 결과 (PRD 5.5). lib/score.ts의 순수 함수가 계산한다. */
+/** 위험도 산출 결과 (PRD 5.5 확장). lib/score.ts의 순수 함수가 계산한다. */
 export interface ScoreResult {
-  /** 0~100 사이의 위험 점수 */
+  /** 0~100 사이의 위험 점수. 표시용이 아니라 내부 참고용 — verdict는 우선순위 기반 규칙으로 별도 결정된다. */
   total: number;
-  /** 점수 구간에 따른 3단계 판정 */
-  verdict: 'safe' | 'caution' | 'danger';
+  /** danger > caution > content_restricted > safe 우선순위로 결정되는 4단계 판정 */
+  verdict: 'safe' | 'caution' | 'content_restricted' | 'danger';
   /** 점수에 실제로 기여한 신호 목록. label은 사용자에게 보여줄 한국어 문장 */
   signals: { label: string; weight: number }[];
 }
@@ -68,12 +70,14 @@ export interface ScanResult {
   facts: ScanFacts;
   score: ScoreResult;
   explanation: LlmExplanation;
+  /** verdict가 content_restricted일 때만 값이 있는 고정 법적 고지 문구 (lib/score.ts의 buildLegalNotice가 생성) */
+  legalNotice: string | null;
   /** VirusTotal/urlscan 중 한쪽이라도 실패해 일부 데이터만으로 판정했는지 여부 */
   partial: boolean;
 }
 
 /** 대처 체크리스트 화면에서 사용자가 선택하는 플랫폼 (PRD 부록 D) */
-export type RecoveryPlatform = 'instagram' | 'discord' | 'kakao' | 'other';
+export type RecoveryPlatform = 'instagram' | 'discord' | 'kakao' | 'message' | 'found_online' | 'other';
 
 /** 대처 체크리스트 화면에서 사용자가 선택하는 행동 (복수 선택 가능, PRD 부록 D) */
 export type RecoveryAction = 'clicked' | 'credentials' | 'app' | 'photo' | 'money';

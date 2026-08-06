@@ -2,7 +2,14 @@ import { NextResponse } from 'next/server';
 import { normalizeUrl } from '@/lib/normalize';
 import { fetchVirusTotalFacts } from '@/lib/providers/virustotal';
 import { fetchUrlscanFacts } from '@/lib/providers/urlscan';
-import { calculateScore, detectBrandImpersonationHint, detectHarmfulContentHint } from '@/lib/score';
+import { fetchFallbackScreenshot } from '@/lib/providers/microlink';
+import {
+  buildLegalNotice,
+  calculateScore,
+  detectBrandImpersonationHint,
+  detectHarmfulContentHint,
+  detectKnownPiracySiteHint,
+} from '@/lib/score';
 import { generateExplanation } from '@/lib/llm';
 import { createRateLimiter } from '@/lib/rateLimit';
 import type { ScanFacts, ScanResult } from '@/lib/types';
@@ -77,6 +84,10 @@ export async function POST(request: Request) {
     return jsonNoStore({ error: 'scan_unavailable' }, 503);
   }
 
+  // urlscan.io가 실패했을 때만(예: 유튜브·구글처럼 정책적으로 스캔이 차단된 사이트) microlink.io로
+  // 스크린샷만 대체 시도한다. urlscan이 이미 성공했다면 그 스크린샷을 그대로 쓰므로 호출하지 않는다.
+  const fallbackScreenshotUrl = urlscan ? null : await fetchFallbackScreenshot(normalized.url);
+
   const facts: ScanFacts = {
     url_normalized: normalized.url,
     domain: hostname,
@@ -85,15 +96,21 @@ export async function POST(request: Request) {
     uses_https: normalized.url.startsWith('https://'),
     virustotal,
     urlscan,
+    fallback_screenshot_url: fallbackScreenshotUrl,
     brand_impersonation_hint: detectBrandImpersonationHint(hostname),
-    harmful_content_hint: detectHarmfulContentHint(virustotal?.categories ?? []),
+    // VirusTotal 카테고리로 못 잡으면(불법 웹툰 사이트는 도메인을 자주 바꿔서 평판 데이터가
+    // 못 따라가는 경우가 많다) 알려진 사이트 이름 키워드로 한 번 더 확인한다.
+    harmful_content_hint:
+      detectHarmfulContentHint(virustotal?.categories ?? []) ??
+      (detectKnownPiracySiteHint(hostname) ? '불법 스트리밍' : null),
   };
 
   // 판정은 코드가 계산한다 — LLM에게 "위험한가?"를 묻지 않는다 (CLAUDE.md 절대 규칙 1).
   const score = calculateScore(facts);
+  const legalNotice = buildLegalNotice(facts, score.verdict);
   const explanation = await generateExplanation(facts, score);
 
-  const result: ScanResult = { facts, score, explanation, partial };
+  const result: ScanResult = { facts, score, explanation, legalNotice, partial };
 
   return jsonNoStore(result, 200);
 }

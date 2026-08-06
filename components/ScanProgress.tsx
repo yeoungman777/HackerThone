@@ -1,9 +1,28 @@
-const STEPS = [
-  "링크 주소 확인",
-  "보안 데이터베이스 대조",
-  "안전한 가상 환경에서 페이지 열어보는 중",
-  "결과 정리",
+const STEPS: { active: string; done: string }[] = [
+  { active: "보내주신 링크를 확인 중입니다.", done: "링크가 확인되었습니다." },
+  { active: "보안 데이터베이스와 대조중입니다.", done: "보안 데이터베이스 대조가 완료되었습니다." },
+  {
+    active: "안전한 가상환경에서 페이지를 열어보는 중입니다.",
+    done: "안전한 가상환경에서 페이지 확인을 마쳤습니다.",
+  },
+  { active: "결과를 정리하고 있습니다.", done: "결과 정리가 완료되었습니다." },
 ];
+
+function StepLabel({ step, isDone }: { step: { active: string; done: string }; isDone: boolean }) {
+  if (!isDone) return <>{step.active}</>;
+
+  return (
+    <span className="relative inline-block">
+      <span className="text-foreground/50">{step.done}</span>
+      <span
+        aria-hidden
+        className="animate-fill-reveal absolute inset-0 overflow-hidden whitespace-nowrap text-green-600 dark:text-green-400"
+      >
+        {step.done}
+      </span>
+    </span>
+  );
+}
 
 export default function ScanProgress({
   currentStep,
@@ -15,29 +34,26 @@ export default function ScanProgress({
   progress: number;
 }) {
   return (
-    <div className="flex flex-col items-center gap-6 py-12 text-center">
+    <div className="animate-rise-in flex flex-col items-center gap-6 py-12 text-center">
       <h1 className="text-lg font-bold">링크를 확인하는 중</h1>
       <p className="text-sm text-foreground/60">보통 20~40초 걸려요</p>
 
       <ul className="w-full space-y-3 text-left">
-        {STEPS.map((label, index) => {
+        {STEPS.map((step, index) => {
           const isDone = index < currentStep;
           const isActive = index === currentStep;
           return (
             <li
-              key={label}
-              className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm ${
+              key={step.active}
+              className={`rounded-lg px-3 py-2 text-sm transition-colors duration-500 ${
                 isActive
                   ? "bg-foreground/5 font-semibold"
                   : isDone
-                    ? "text-foreground/50"
+                    ? "font-medium"
                     : "text-foreground/30"
               }`}
             >
-              <span className="w-5 shrink-0 text-center">
-                {isDone ? "✅" : isActive ? "⏳" : "⬜"}
-              </span>
-              {label}
+              <StepLabel step={step} isDone={isDone} />
             </li>
           );
         })}
