@@ -37,11 +37,14 @@ export default function PushNotificationToggle() {
       // pushManager.subscribe()가 "no active Service Worker"로 실패할 수 있다. ready는
       // 실제로 활성화된 뒤에 resolve되므로 이걸 기다린다.
       const registration = await navigator.serviceWorker.ready;
-      const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+
+      // 빌드 타임에 클라이언트 번들에 박아 넣는 NEXT_PUBLIC_* 대신, 요청 시점에 서버에서
+      // 받아온다 — 배포 환경에 따라 빌드 타임 주입이 불안정할 수 있어 더 안정적인 방식이다.
+      const keyRes = await fetch("/api/push/public-key");
+      const keyBody = (await keyRes.json()) as { publicKey?: string };
+      const publicKey = keyBody.publicKey;
       if (!publicKey) {
-        // NEXT_PUBLIC_* 값은 빌드 시점에 코드로 박히므로, 배포 환경에 키를 등록해놓고도
-        // 빌드 캐시가 재사용되면 여기 걸릴 수 있다 — 조용히 실패하지 않고 알 수 있게 로그를 남긴다.
-        console.error("NEXT_PUBLIC_VAPID_PUBLIC_KEY가 빌드에 포함되지 않았어요.");
+        console.error("서버에 VAPID 공개키가 설정되지 않았어요.");
         setLoading(false);
         return;
       }
