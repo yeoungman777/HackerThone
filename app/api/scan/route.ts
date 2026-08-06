@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { normalizeUrl } from '@/lib/normalize';
 import { fetchVirusTotalFacts } from '@/lib/providers/virustotal';
-import { fetchUrlscanFacts } from '@/lib/providers/urlscan';
+import { fetchUrlscanFacts, UrlscanUnreachableError } from '@/lib/providers/urlscan';
 import { calculateScore, detectBrandImpersonationHint, detectHarmfulContentHint } from '@/lib/score';
 import { generateExplanation } from '@/lib/llm';
 import { createRateLimiter } from '@/lib/rateLimit';
@@ -77,6 +77,9 @@ export async function POST(request: Request) {
     return jsonNoStore({ error: 'scan_unavailable' }, 503);
   }
 
+  const targetUnreachable =
+    urlscanSettled.status === 'rejected' && urlscanSettled.reason instanceof UrlscanUnreachableError;
+
   const facts: ScanFacts = {
     url_normalized: normalized.url,
     domain: hostname,
@@ -87,6 +90,7 @@ export async function POST(request: Request) {
     urlscan,
     brand_impersonation_hint: detectBrandImpersonationHint(hostname),
     harmful_content_hint: detectHarmfulContentHint(virustotal?.categories ?? []),
+    target_unreachable: targetUnreachable,
   };
 
   // 판정은 코드가 계산한다 — LLM에게 "위험한가?"를 묻지 않는다 (CLAUDE.md 절대 규칙 1).

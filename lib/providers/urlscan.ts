@@ -13,6 +13,30 @@ interface SubmitResponse {
   api: string;
 }
 
+/**
+ * urlscan.io가 대상 URL에 아예 접속하지 못한 경우(PRD 7.4 "접속 불가 URL").
+ * 도메인이 이미 차단됐거나 만료돼 사라진 피싱 사이트에서 흔히 발생한다.
+ * (urlscan.io 문서: DNS 조회 실패 시 스캔 제출이 HTTP 400 +
+ *  "DNS Error - Could not resolve domain"으로 응답한다.)
+ */
+export class UrlscanUnreachableError extends Error {
+  constructor() {
+    super('urlscan이 이 URL에 접속하지 못했어요 (DNS 조회 실패)');
+    this.name = 'UrlscanUnreachableError';
+  }
+}
+
+interface UrlscanSubmitErrorBody {
+  message?: string;
+  description?: string;
+}
+
+function isDnsUnreachableError(body: UrlscanSubmitErrorBody | null): boolean {
+  if (!body) return false;
+  const text = `${body.message ?? ''} ${body.description ?? ''}`.toLowerCase();
+  return text.includes('dns') || text.includes('could not resolve');
+}
+
 interface UrlscanResult {
   task: {
     url: string;
@@ -48,6 +72,12 @@ async function submitScan(url: string, apiKey: string): Promise<SubmitResponse> 
     res = await submit('public');
   }
   if (!res.ok) {
+    if (res.status === 400) {
+      const body = (await res.json().catch(() => null)) as UrlscanSubmitErrorBody | null;
+      if (isDnsUnreachableError(body)) {
+        throw new UrlscanUnreachableError();
+      }
+    }
     throw new Error(`urlscan 제출 실패 (${res.status})`);
   }
   return res.json();

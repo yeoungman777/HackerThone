@@ -20,6 +20,10 @@ const SYSTEM_PROMPT = `너는 청소년에게 인터넷 링크의 위험을 설�
 - scan_data에 harmful_content_hint(도박/성인 콘텐츠/불법 복제물 등)가 있고 비밀번호 탈취·악성코드 관련 신호는 없다면,
   "계정이 털린다", "정보가 유출된다" 같은 피싱 서사를 쓰지 않는다. 대신 "이 사이트는 (해당 콘텐츠) 내용을 담고 있어서
   청소년에게 맞지 않아요" 식으로, 콘텐츠 자체가 부적절하다는 점을 담담하게 설명한다.
+- scan_data에 target_unreachable이 true이면, 지금은 그 주소로 들어가지지 않는다는 것(이미 차단됐거나 사라짐)을
+  story에 자연스럽게 담는다. evidence에 다른 위험 신호가 있다면 "그래도 예전엔 위험했을 수 있으니 이 링크 자체는
+  누르거나 전달하지 마세요"라는 취지를 덧붙이고, 없다면 사라진 사이트라는 사실만 담담하게 전달한다.
+  urlscan 관련 항목(비밀번호 입력칸, 리다이렉트 등)은 데이터가 없으므로 언급하지 않는다.
 
 ## 말투
 - 읽는 사람은 13~18세 청소년이다. 중학생이 이해할 수 있는 단어만 쓴다.
@@ -122,9 +126,18 @@ const HARMFUL_CONTENT_FALLBACK_TIPS = [
   '검사가 완벽하지는 않으니 조금이라도 이상하면 누르지 마세요.',
 ];
 
+const UNREACHABLE_FALLBACK_TIPS = [
+  '사라진 사이트라도 그 링크를 다른 사람에게 전달하지 마세요.',
+  '검사가 완벽하지는 않으니 조금이라도 이상하면 누르지 마세요.',
+];
+
 /**
  * LLM 호출이 실패했을 때 사용하는 템플릿 폴백 (PRD 부록 C.5, 7.4).
  * score.ts가 계산한 신호를 그대로 근거로 보여준다.
+ *
+ * target_unreachable(urlscan.io가 DNS 조회조차 못한 경우)이 가장 먼저 확인해야 할
+ * 사실이므로 다른 분기보다 우선한다 — "이미 사라진 사이트"라는 사실 자체가
+ * verdict별 기본 문구("계정을 노린다"/"위험해 보인다")보다 사용자에게 더 중요하다.
  *
  * harmful_content_hint(도박·성인 콘텐츠·불법 복제물)만으로 판정이 나온 경우
  * — 즉 악성 엔진 탐지나 "비밀번호 입력칸+브랜드 사칭" 같은 계정 탈취 신호가 없는 경우 —
@@ -133,6 +146,18 @@ const HARMFUL_CONTENT_FALLBACK_TIPS = [
  */
 export function buildFallbackExplanation(facts: ScanFacts, score: ScoreResult): LlmExplanation {
   const evidence = score.signals.map((signal) => ({ icon: '•', text: signal.label }));
+
+  if (facts.target_unreachable) {
+    const hasRiskSignal = score.signals.length > 0;
+    return {
+      summary: '이미 사라졌거나 차단된 페이지예요',
+      story: hasRiskSignal
+        ? '지금은 이 주소로 들어가지지 않아요. 이미 차단됐거나 사라진 것 같아요. 다만 예전 기록을 보면 위험했던 사이트일 수 있으니, 이 링크는 누르지도 전달하지도 마세요.'
+        : '지금은 이 주소로 들어가지지 않아요. 이미 차단됐거나 사라진 것 같아요.',
+      evidence: [{ icon: '🚫', text: '지금은 이 주소로 연결되지 않아요' }, ...evidence],
+      tips: UNREACHABLE_FALLBACK_TIPS,
+    };
+  }
 
   const hasAccountTakeoverSignal =
     (facts.virustotal?.engines_malicious ?? 0) >= 1 ||

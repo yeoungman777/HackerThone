@@ -164,7 +164,9 @@ export default function ResultPage() {
 
       {partial && (
         <p className="rounded-lg bg-foreground/5 px-3 py-2 text-center text-xs text-foreground/60">
-          일부 검사만 완료됐어요. 결과가 정확하지 않을 수 있어요.
+          {facts.target_unreachable
+            ? "이미 차단됐거나 사라진 페이지예요. 남은 정보만으로 판단했어요."
+            : "일부 검사만 완료됐어요. 결과가 정확하지 않을 수 있어요."}
         </p>
       )}
 
