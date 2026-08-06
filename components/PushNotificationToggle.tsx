@@ -39,6 +39,9 @@ export default function PushNotificationToggle() {
       const registration = await navigator.serviceWorker.ready;
       const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
       if (!publicKey) {
+        // NEXT_PUBLIC_* 값은 빌드 시점에 코드로 박히므로, 배포 환경에 키를 등록해놓고도
+        // 빌드 캐시가 재사용되면 여기 걸릴 수 있다 — 조용히 실패하지 않고 알 수 있게 로그를 남긴다.
+        console.error("NEXT_PUBLIC_VAPID_PUBLIC_KEY가 빌드에 포함되지 않았어요.");
         setLoading(false);
         return;
       }
