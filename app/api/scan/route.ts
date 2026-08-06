@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { normalizeUrl } from '@/lib/normalize';
 import { fetchVirusTotalFacts } from '@/lib/providers/virustotal';
 import { fetchUrlscanFacts } from '@/lib/providers/urlscan';
+import { calculateScore, detectBrandImpersonationHint } from '@/lib/score';
+import { generateExplanation } from '@/lib/llm';
 import type { ScanFacts, ScanResult } from '@/lib/types';
 
 // urlscan.io 폴링(최대 60초)을 안전하게 기다리기 위해 함수 실행 시간을 넉넉히 확보한다.
@@ -53,26 +55,14 @@ export async function POST(request: Request) {
     uses_https: normalized.url.startsWith('https://'),
     virustotal,
     urlscan,
-    // TODO(다음 단계): lib/score.ts에서 브랜드 유사 도메인 휴리스틱으로 채운다.
-    brand_impersonation_hint: null,
+    brand_impersonation_hint: detectBrandImpersonationHint(hostname),
   };
 
-  // TODO(다음 단계): lib/score.ts(위험도 산출) + lib/llm.ts(서사 설명)로 대체한다.
-  const mockResult: ScanResult = {
-    facts,
-    score: {
-      total: 0,
-      verdict: 'safe',
-      signals: [],
-    },
-    explanation: {
-      summary: '아직 실제 판정 결과가 아니에요',
-      story: '위협 데이터 수집까지는 연결됐고, 점수 산출과 설명 생성은 다음 단계에서 연결돼요.',
-      evidence: [],
-      tips: [],
-    },
-    partial,
-  };
+  // 판정은 코드가 계산한다 — LLM에게 "위험한가?"를 묻지 않는다 (CLAUDE.md 절대 규칙 1).
+  const score = calculateScore(facts);
+  const explanation = await generateExplanation(facts, score);
 
-  return NextResponse.json(mockResult);
+  const result: ScanResult = { facts, score, explanation, partial };
+
+  return NextResponse.json(result);
 }
