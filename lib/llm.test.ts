@@ -99,4 +99,78 @@ describe('buildFallbackExplanation', () => {
 
     expect(explanation.summary).toBe('특별한 위험은 찾지 못했어요');
   });
+
+  it('접속 불가(target_unreachable)면 다른 신호가 없어도 사라진 사이트 문구를 쓴다', () => {
+    const facts = makeFacts({ target_unreachable: true, urlscan: null });
+    const score = calculateScore(facts);
+
+    const explanation = buildFallbackExplanation(facts, score);
+
+    expect(explanation.summary).toBe('이미 사라졌거나 차단된 페이지예요');
+    expect(explanation.story).not.toContain('예전 기록');
+    expect(explanation.evidence[0]).toEqual({ icon: '🚫', text: '지금은 이 주소로 연결되지 않아요' });
+  });
+
+  it('접속 불가 + 다른 위험 신호가 있으면 그 사실도 함께 경고한다', () => {
+    const facts = makeFacts({
+      target_unreachable: true,
+      urlscan: null,
+      virustotal: { engines_total: 70, engines_malicious: 3, engines_suspicious: 0, categories: [] },
+    });
+    const score = calculateScore(facts);
+
+    const explanation = buildFallbackExplanation(facts, score);
+
+    expect(explanation.summary).toBe('이미 사라졌거나 차단된 페이지예요');
+    expect(explanation.story).toContain('예전 기록');
+    expect(explanation.evidence.length).toBeGreaterThan(1);
+  });
+
+  it('접속 불가는 유해 콘텐츠 힌트보다 우선한다', () => {
+    const facts = makeFacts({ target_unreachable: true, urlscan: null, harmful_content_hint: '도박' });
+    const score = calculateScore(facts);
+
+    const explanation = buildFallbackExplanation(facts, score);
+
+    expect(explanation.summary).toBe('이미 사라졌거나 차단된 페이지예요');
+  });
+
+  it('VirusTotal 카테고리가 도박/성인/불법복제 3개 버킷에 안 걸려도 원본 분류를 근거로 보여준다', () => {
+    // harmful_content_hint(score.ts의 3개 버킷)에는 안 걸리지만 VT가 뭔가로는
+    // 분류해둔 경우 — "이 사이트가 뭔지" 정보를 점수와 무관하게 항상 보여줘야 한다.
+    const facts = makeFacts({
+      harmful_content_hint: null,
+      virustotal: { engines_total: 70, engines_malicious: 0, engines_suspicious: 0, categories: ['manga', 'streaming'] },
+    });
+    const score = calculateScore(facts);
+
+    const explanation = buildFallbackExplanation(facts, score);
+
+    expect(explanation.evidence.some((item) => item.icon === '🏷️' && item.text.includes('manga'))).toBe(true);
+  });
+
+  it('카테고리가 비어 있으면 분류 근거를 추가하지 않는다', () => {
+    const facts = makeFacts({ virustotal: { engines_total: 70, engines_malicious: 0, engines_suspicious: 0, categories: [] } });
+    const score = calculateScore(facts);
+
+    const explanation = buildFallbackExplanation(facts, score);
+
+    expect(explanation.evidence.some((item) => item.icon === '🏷️')).toBe(false);
+  });
+
+  it('접속 불가여도 VirusTotal 카테고리 정보는 유효하니 서사에 포함한다', () => {
+    // urlscan이 실제 화면을 못 봤어도(target_unreachable) VT 카테고리 분류는
+    // 사이트에 접속하지 않고도 알 수 있는 정보라 여전히 유효하다.
+    const facts = makeFacts({
+      target_unreachable: true,
+      urlscan: null,
+      virustotal: { engines_total: 70, engines_malicious: 0, engines_suspicious: 0, categories: ['piracy'] },
+    });
+    const score = calculateScore(facts);
+
+    const explanation = buildFallbackExplanation(facts, score);
+
+    expect(explanation.story).toContain('piracy');
+    expect(explanation.evidence.some((item) => item.icon === '🏷️')).toBe(true);
+  });
 });

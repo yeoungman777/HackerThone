@@ -41,6 +41,8 @@ export interface ScanFacts {
   brand_impersonation_hint?: string | null;
   /** VirusTotal 카테고리에서 청소년에게 부적절한 콘텐츠 유형을 찾은 경우의 힌트 (예: "도박"). 계정 탈취 위험과는 별개의 신호다. */
   harmful_content_hint?: string | null;
+  /** urlscan.io가 이 URL에 아예 접속하지 못한 경우(DNS 조회 실패 등) true. 이미 차단됐거나 사라진 페이지일 가능성이 높다 (PRD 7.4). */
+  target_unreachable?: boolean;
 }
 
 /** 위험도 산출 결과 (PRD 5.5 확장). lib/score.ts의 순수 함수가 계산한다. */

@@ -14,7 +14,11 @@ type Status = "no-url" | "loading" | "done" | "error";
 
 // 서버 쪽 최대 처리 시간(120초)보다 넉넉하게 클라이언트 타임아웃을 잡는다.
 const FETCH_TIMEOUT_MS = 130_000;
-const SECOND_STEP_DELAY_MS = 2500;
+
+// 서버가 진행률을 실시간으로 주지 않으므로, 경과 시간을 기준으로 단계를 추정한다.
+// 0~3초: 링크 주소 확인 / 3~10초: 보안 데이터베이스 대조 / 10초~응답: 가상 환경 접속.
+const STEP_DATABASE_CHECK_AT_MS = 3_000;
+const STEP_SANDBOX_SCAN_AT_MS = 10_000;
 
 function isNormalizeReason(value: unknown): value is NormalizeReason {
   return typeof value === "string" && value in NORMALIZE_ERROR_MESSAGES;
@@ -50,10 +54,10 @@ export default function ResultPage() {
 
     const stepTimer1 = setTimeout(() => {
       if (runIdRef.current === id) setStep(1);
-    }, 400);
+    }, STEP_DATABASE_CHECK_AT_MS);
     const stepTimer2 = setTimeout(() => {
       if (runIdRef.current === id) setStep(2);
-    }, SECOND_STEP_DELAY_MS);
+    }, STEP_SANDBOX_SCAN_AT_MS);
 
     // 실제 진행률은 알 수 없으니 90%까지만 서서히 채우고, 응답이 오면 100%로 마무리한다.
     const progressTimer = setInterval(() => {
@@ -175,7 +179,9 @@ export default function ResultPage() {
 
       {partial && (
         <p className="rounded-lg bg-foreground/5 px-3 py-2 text-center text-xs text-foreground/60">
-          일부 검사만 완료됐어요. 결과가 정확하지 않을 수 있어요.
+          {facts.target_unreachable
+            ? "이미 차단됐거나 사라진 페이지예요. 남은 정보만으로 판단했어요."
+            : "일부 검사만 완료됐어요. 결과가 정확하지 않을 수 있어요."}
         </p>
       )}
 

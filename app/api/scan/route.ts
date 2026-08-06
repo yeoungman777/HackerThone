@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { normalizeUrl } from '@/lib/normalize';
 import { fetchVirusTotalFacts } from '@/lib/providers/virustotal';
-import { fetchUrlscanFacts } from '@/lib/providers/urlscan';
+import { fetchUrlscanFacts, UrlscanUnreachableError } from '@/lib/providers/urlscan';
 import { fetchFallbackScreenshot } from '@/lib/providers/microlink';
 import {
   buildLegalNotice,
@@ -88,6 +88,9 @@ export async function POST(request: Request) {
   // 스크린샷만 대체 시도한다. urlscan이 이미 성공했다면 그 스크린샷을 그대로 쓰므로 호출하지 않는다.
   const fallbackScreenshotUrl = urlscan ? null : await fetchFallbackScreenshot(normalized.url);
 
+  const targetUnreachable =
+    urlscanSettled.status === 'rejected' && urlscanSettled.reason instanceof UrlscanUnreachableError;
+
   const facts: ScanFacts = {
     url_normalized: normalized.url,
     domain: hostname,
@@ -103,6 +106,7 @@ export async function POST(request: Request) {
     harmful_content_hint:
       detectHarmfulContentHint(virustotal?.categories ?? []) ??
       (detectKnownPiracySiteHint(hostname) ? '불법 스트리밍' : null),
+    target_unreachable: targetUnreachable,
   };
 
   // 판정은 코드가 계산한다 — LLM에게 "위험한가?"를 묻지 않는다 (CLAUDE.md 절대 규칙 1).

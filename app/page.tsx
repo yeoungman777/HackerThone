@@ -45,6 +45,9 @@ export default function Home() {
           autoFocus
           type="text"
           inputMode="url"
+          autoCapitalize="off"
+          autoCorrect="off"
+          spellCheck={false}
           value={url}
           onChange={(event) => setUrl(event.target.value)}
           placeholder="https://..."
