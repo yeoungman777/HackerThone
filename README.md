@@ -2,7 +2,7 @@
 
 - 작성일: 2026-08-06
 - 최종 수정일: 2026-08-07
-- 버전: v2.0
+- 버전: v2.1
 - GitHub: https://github.com/yeoungman777/HackerThone (public)
 - 배포 주소: https://checklink-production.up.railway.app
 
@@ -173,6 +173,14 @@ DNS 조회 자체에 실패하면(이미 차단됐거나 사라진 사이트) �
 
 ## 시작하기
 
+이미 배포돼 있어서 설치 없이 바로 써볼 수 있습니다.
+
+**[https://checklink-production.up.railway.app](https://checklink-production.up.railway.app)** 에 접속하세요.
+
+### 로컬에서 개발하려면
+
+코드를 수정하거나 직접 돌려보고 싶을 때만 아래 과정이 필요합니다.
+
 ```bash
 npm install
 cp .env.local.example .env.local
@@ -204,6 +212,7 @@ npm run lint     # 린트
 
 | 버전 | 날짜 | 변경 내용 |
 |------|------|-----------|
+| v2.1 | 2026-08-07 | "시작하기"를 로컬 실행 안내 대신 배포된 사이트 링크로 먼저 안내하도록 수정. 로컬 개발 절차는 "로컬에서 개발하려면"으로 하위 항목화 |
 | v2.0 | 2026-08-07 | GitHub 최신 완성본 기준으로 전면 갱신 — 4단계 판정(안전/주의/접속 제한/위험) 분리, 대처 플로우 전면 개편(피해 스크리닝·신고 창구 추가), 위험 감지 푸시 알림, 다크 모드·설정 화면, microlink.io 보조 스크린샷, Railway 배포 정보 반영 |
 | v1.4 | 2026-08-06 | "동작 원리"(흐름도), "사용한 언어와 API" 섹션 추가, 목차 추가 |
 | v1.3 | 2026-08-06 | 프로젝트명을 "눌러도돼? (click-safe)"에서 "CheckLink (체크링크)"로 변경 |
