@@ -70,7 +70,7 @@ export default function Home() {
           href="/recover"
           className="text-sm font-medium text-foreground/70 underline underline-offset-4"
         >
-          이미 링크를 눌렀어요 →
+          URL 접속 후 확인이 필요해요 →
         </Link>
       </div>
 
