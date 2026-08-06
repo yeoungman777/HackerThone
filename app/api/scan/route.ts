@@ -12,6 +12,7 @@ import {
 } from '@/lib/score';
 import { generateExplanation } from '@/lib/llm';
 import { createRateLimiter } from '@/lib/rateLimit';
+import { sendDangerNotification } from '@/lib/push';
 import type { ScanFacts, ScanResult } from '@/lib/types';
 
 // urlscan.io 폴링(최대 60초)과 VirusTotal 폴링(최대 75초, 병렬 실행)에 이어지는
@@ -50,6 +51,10 @@ export async function POST(request: Request) {
     typeof body === 'object' && body !== null && typeof (body as { url?: unknown }).url === 'string'
       ? (body as { url: string }).url
       : '';
+  const subscriptionId =
+    typeof body === 'object' && body !== null && typeof (body as { subscriptionId?: unknown }).subscriptionId === 'string'
+      ? (body as { subscriptionId: string }).subscriptionId
+      : null;
 
   const normalized = normalizeUrl(rawUrl);
   if (!normalized.ok) {
@@ -113,6 +118,12 @@ export async function POST(request: Request) {
   const score = calculateScore(facts);
   const legalNotice = buildLegalNotice(facts, score.verdict);
   const explanation = await generateExplanation(facts, score);
+
+  // 위험(danger) 판정이고, 이번 검사를 요청한 브라우저가 알림을 켜놨을 때만 보낸다 —
+  // 다른 사람에게는 가지 않는다. 응답 자체를 지연시키지 않도록 기다리지 않는다.
+  if (score.verdict === 'danger' && subscriptionId) {
+    void sendDangerNotification(subscriptionId);
+  }
 
   const result: ScanResult = { facts, score, explanation, legalNotice, partial };
 

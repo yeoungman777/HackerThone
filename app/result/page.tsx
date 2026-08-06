@@ -68,10 +68,12 @@ export default function ResultPage() {
     const controller = new AbortController();
     const abortTimer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
 
+    const subscriptionId = localStorage.getItem("checklink:push-subscription-id");
+
     fetch("/api/scan", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ url }),
+      body: JSON.stringify({ url, subscriptionId }),
       signal: controller.signal,
     })
       .then(async (response) => {
