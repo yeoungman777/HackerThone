@@ -1,0 +1,77 @@
+// 이 프로젝트의 핵심 타입 정의 (PRD 5.4, 5.5, 부록 C.4 기준)
+
+/** VirusTotal 조회 결과 (PRD 5.4). 조회 자체가 실패하면 undefined. */
+export interface VirusTotalFacts {
+  engines_total: number;
+  engines_malicious: number;
+  engines_suspicious: number;
+  categories: string[];
+}
+
+/** urlscan.io 스캔 결과 (PRD 5.4 + STEP 4 확장 필드). 조회 자체가 실패하면 undefined. */
+export interface UrlscanFacts {
+  final_url: string;
+  redirect_count: number;
+  redirect_chain: string[]; // 도메인만 담는다 (전체 URL 아님)
+  has_password_input: boolean;
+  external_domains_contacted: number;
+  screenshot_url: string | null;
+  page_title: string | null;
+  domain_age_days: number | null;
+  server_country: string | null;
+}
+
+/**
+ * 외부 API에서 수집한 사실 데이터 (PRD 5.4 스키마).
+ * LLM에는 이 구조화된 데이터만 전달하고 원본 HTML/텍스트는 절대 포함하지 않는다.
+ */
+export interface ScanFacts {
+  url_normalized: string;
+  domain: string;
+  domain_age_days: number | null;
+  tld: string;
+  uses_https: boolean;
+  /** VirusTotal 호출이 실패했을 수 있으므로 optional/null 허용 */
+  virustotal?: VirusTotalFacts | null;
+  /** urlscan.io 호출이 실패했을 수 있으므로 optional/null 허용 */
+  urlscan?: UrlscanFacts | null;
+  /** 도메인이 유명 브랜드와 유사한 경우의 브랜드명 힌트 (예: "instagram") */
+  brand_impersonation_hint?: string | null;
+}
+
+/** 위험도 산출 결과 (PRD 5.5). lib/score.ts의 순수 함수가 계산한다. */
+export interface ScoreResult {
+  /** 0~100 사이의 위험 점수 */
+  total: number;
+  /** 점수 구간에 따른 3단계 판정 */
+  verdict: 'safe' | 'caution' | 'danger';
+  /** 점수에 실제로 기여한 신호 목록. label은 사용자에게 보여줄 한국어 문장 */
+  signals: { label: string; weight: number }[];
+}
+
+/** LLM이 생성하는 서사형 설명 (PRD 부록 C.4 zod 스키마와 대응) */
+export interface LlmExplanation {
+  /** 한 줄 요약 (40자 이내) */
+  summary: string;
+  /** 눌렀다면 벌어졌을 일. 2~4문장, 시간 순서 서술 */
+  story: string;
+  /** 판단 근거. icon + 한 줄 설명, 3~5개 */
+  evidence: { icon: string; text: string }[];
+  /** 다음에 스스로 알아보는 방법 팁, 2~3개 */
+  tips: string[];
+}
+
+/** 클라이언트에 최종 반환되는 검사 결과 형태 */
+export interface ScanResult {
+  facts: ScanFacts;
+  score: ScoreResult;
+  explanation: LlmExplanation;
+  /** VirusTotal/urlscan 중 한쪽이라도 실패해 일부 데이터만으로 판정했는지 여부 */
+  partial: boolean;
+}
+
+/** 대처 체크리스트 화면에서 사용자가 선택하는 플랫폼 (PRD 부록 D) */
+export type RecoveryPlatform = 'instagram' | 'discord' | 'kakao' | 'other';
+
+/** 대처 체크리스트 화면에서 사용자가 선택하는 행동 (복수 선택 가능, PRD 부록 D) */
+export type RecoveryAction = 'clicked' | 'credentials' | 'app' | 'photo' | 'money';
