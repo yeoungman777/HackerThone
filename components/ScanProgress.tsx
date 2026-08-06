@@ -34,8 +34,17 @@ export default function ScanProgress({
                     : "text-foreground/30"
               }`}
             >
-              <span className="w-5 shrink-0 text-center">
-                {isDone ? "✅" : isActive ? "⏳" : "⬜"}
+              <span className="flex w-5 shrink-0 items-center justify-center">
+                {isDone ? (
+                  "✅"
+                ) : isActive ? (
+                  <span
+                    aria-hidden
+                    className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-blue-500/30 border-t-blue-500"
+                  />
+                ) : (
+                  "⬜"
+                )}
               </span>
               {label}
             </li>

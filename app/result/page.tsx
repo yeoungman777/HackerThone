@@ -13,7 +13,11 @@ type Status = "no-url" | "loading" | "done" | "error";
 
 // 서버 쪽 최대 처리 시간(120초)보다 넉넉하게 클라이언트 타임아웃을 잡는다.
 const FETCH_TIMEOUT_MS = 130_000;
-const SECOND_STEP_DELAY_MS = 2500;
+
+// 서버가 진행률을 실시간으로 주지 않으므로, 경과 시간을 기준으로 단계를 추정한다.
+// 0~3초: 링크 주소 확인 / 3~10초: 보안 데이터베이스 대조 / 10초~응답: 가상 환경 접속.
+const STEP_DATABASE_CHECK_AT_MS = 3_000;
+const STEP_SANDBOX_SCAN_AT_MS = 10_000;
 
 function isNormalizeReason(value: unknown): value is NormalizeReason {
   return typeof value === "string" && value in NORMALIZE_ERROR_MESSAGES;
@@ -49,10 +53,10 @@ export default function ResultPage() {
 
     const stepTimer1 = setTimeout(() => {
       if (runIdRef.current === id) setStep(1);
-    }, 400);
+    }, STEP_DATABASE_CHECK_AT_MS);
     const stepTimer2 = setTimeout(() => {
       if (runIdRef.current === id) setStep(2);
-    }, SECOND_STEP_DELAY_MS);
+    }, STEP_SANDBOX_SCAN_AT_MS);
 
     // 실제 진행률은 알 수 없으니 90%까지만 서서히 채우고, 응답이 오면 100%로 마무리한다.
     const progressTimer = setInterval(() => {
