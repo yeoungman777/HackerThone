@@ -38,12 +38,23 @@ export function detectBrandImpersonationHint(domain: string): string | null {
 // score.ts에서 별도 가중치로, llm.ts 프롬프트에서 별도 서사로 다룬다.
 interface HarmfulCategoryRule {
   keywords: string[];
+  /** 이 중 하나라도 포함되면 매칭에서 제외한다 (아래 exclude 주석 참고). */
+  exclude?: string[];
   label: string;
 }
 
 const HARMFUL_CATEGORY_RULES: HarmfulCategoryRule[] = [
   { keywords: ['gambling', 'casino', 'betting'], label: '도박' },
-  { keywords: ['pornography', 'adult content', 'adult', 'porn'], label: '성인 콘텐츠' },
+  {
+    keywords: ['pornography', 'adult content', 'adult', 'porn'],
+    // alphaMountain.ai 등 일부 벤더는 "violence/adult content"처럼 폭력·선정성을
+    // 묶어 "콘텐츠 주의가 필요할 수 있다"는 일반 경고 태그를 붙인다. 이건 "이
+    // 사이트가 성인물이다"라는 뜻이 아니라, 유튜브처럼 사용자 업로드 영상이
+    // 많은 대형 플랫폼에도 흔히 붙는 태그다. 실측 결과 youtube.com이 바로 이
+    // 태그 때문에 "성인 콘텐츠"로 오탐됐다 — violence와 묶인 태그는 제외한다.
+    exclude: ['violence'],
+    label: '성인 콘텐츠',
+  },
   { keywords: ['piracy', 'copyright infringement', 'warez', 'illegal software'], label: '불법 복제물' },
 ];
 
@@ -51,9 +62,10 @@ const HARMFUL_CATEGORY_RULES: HarmfulCategoryRule[] = [
 export function detectHarmfulContentHint(categories: string[]): string | null {
   const lowerCategories = categories.map((category) => category.toLowerCase());
   for (const rule of HARMFUL_CATEGORY_RULES) {
-    const matched = lowerCategories.some((category) =>
-      rule.keywords.some((keyword) => category.includes(keyword))
-    );
+    const matched = lowerCategories.some((category) => {
+      if (rule.exclude?.some((excluded) => category.includes(excluded))) return false;
+      return rule.keywords.some((keyword) => category.includes(keyword));
+    });
     if (matched) return rule.label;
   }
   return null;

@@ -247,6 +247,19 @@ describe('detectHarmfulContentHint', () => {
   it('카테고리가 비어 있으면 null을 반환한다', () => {
     expect(detectHarmfulContentHint([])).toBeNull();
   });
+
+  it('실측 오탐 회귀 테스트: "violence/adult content" 같은 일반 콘텐츠 경고 태그는 매칭하지 않는다', () => {
+    // 정확도 검증 중 youtube.com이 VT의 이 카테고리 태그 때문에 "성인 콘텐츠"로
+    // 잘못 판정(오탐)됐던 실제 사례. alphaMountain.ai류 벤더는 폭력·선정성을
+    // 묶어 대형 UGC 플랫폼에도 이 태그를 흔히 붙인다.
+    expect(detectHarmfulContentHint(['violence/adult content'])).toBeNull();
+    expect(detectHarmfulContentHint(['Violence/Adult Content'])).toBeNull();
+  });
+
+  it('violence와 묶이지 않은 순수 성인물 카테고리는 여전히 감지한다', () => {
+    expect(detectHarmfulContentHint(['Adult Content'])).toBe('성인 콘텐츠');
+    expect(detectHarmfulContentHint(['porn'])).toBe('성인 콘텐츠');
+  });
 });
 
 describe('detectBrandImpersonationHint', () => {
