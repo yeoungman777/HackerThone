@@ -11,6 +11,14 @@ export type NormalizeResult =
   | { ok: true; url: string }
   | { ok: false; reason: NormalizeReason };
 
+/** 정규화 실패 사유를 청소년이 이해할 수 있는 한국어 문구로 옮긴다. 입력/결과 화면에서 공용으로 쓴다. */
+export const NORMALIZE_ERROR_MESSAGES: Record<NormalizeReason, string> = {
+  empty: '링크를 입력해주세요',
+  invalid_format: '링크 형식을 확인해주세요',
+  unsupported_scheme: '지원하지 않는 형태의 링크예요',
+  private_host: '이 주소는 검사할 수 없어요',
+};
+
 const SCHEME_PATTERN = /^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//;
 
 const PRIVATE_HOSTNAME_PATTERNS = [

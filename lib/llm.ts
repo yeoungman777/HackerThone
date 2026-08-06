@@ -8,7 +8,6 @@ import type { LlmExplanation, ScanFacts, ScoreResult } from './types';
 
 const MODEL = 'claude-sonnet-5';
 const MAX_TOKENS = 1024;
-const TEMPERATURE = 0.3;
 
 const SYSTEM_PROMPT = `너는 청소년에게 인터넷 링크의 위험을 설명해주는 안내자다.
 
@@ -78,7 +77,6 @@ async function callLlmOnce(client: Anthropic, facts: ScanFacts, score: ScoreResu
   const response = await client.messages.create({
     model: MODEL,
     max_tokens: MAX_TOKENS,
-    temperature: TEMPERATURE,
     system: SYSTEM_PROMPT,
     messages: [{ role: 'user', content: buildUserMessage(facts, score) }],
   });
