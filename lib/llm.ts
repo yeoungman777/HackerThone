@@ -24,6 +24,14 @@ const SYSTEM_PROMPT = `너는 청소년에게 인터넷 링크의 위험을 설�
   story에 자연스럽게 담는다. evidence에 다른 위험 신호가 있다면 "그래도 예전엔 위험했을 수 있으니 이 링크 자체는
   누르거나 전달하지 마세요"라는 취지를 덧붙이고, 없다면 사라진 사이트라는 사실만 담담하게 전달한다.
   urlscan 관련 항목(비밀번호 입력칸, 리다이렉트 등)은 데이터가 없으므로 언급하지 않는다.
+- scan_data.virustotal.categories가 빈 배열이 아니면, 이 사이트가 어떤 종류의 사이트로 분류돼 있는지
+  evidence에 반드시 한 줄 포함한다. (예: categories에 "piracy"가 있으면 "여러 보안업체가 이 사이트를
+  저작권을 침해하는 불법 콘텐츠 사이트로 분류해뒀어요" 식으로.) target_unreachable이 true여서 urlscan이
+  실제 화면을 보지 못했더라도, VirusTotal의 카테고리 분류는 사이트에 실제로 접속하지 않고도 알 수 있는
+  정보이므로 그대로 유효하다 — "지금은 못 들어가지만, 여러 보안업체는 이 사이트를 [카테고리]로 분류해왔어요"처럼
+  두 사실을 자연스럽게 같이 전달한다. categories 값이 harmful_content_hint가 다루는 도박/성인/불법복제
+  범주에 정확히 안 들어맞더라도(예: 뉴스, 쇼핑, 스트리밍 등) 사이트 정체를 아는 것 자체가 사용자에게
+  중요한 정보이니 생략하지 않는다.
 
 ## 말투
 - 읽는 사람은 13~18세 청소년이다. 중학생이 이해할 수 있는 단어만 쓴다.
@@ -132,6 +140,20 @@ const UNREACHABLE_FALLBACK_TIPS = [
 ];
 
 /**
+ * VirusTotal이 분류해둔 원본 카테고리를 그대로 근거로 보여준다. score.ts의
+ * harmful_content_hint는 도박/성인/불법복제 3개 버킷에 안 걸리면 아무 신호도
+ * 만들지 않는데, 그 경우에도 "이 사이트가 뭔지" 자체는 사용자에게 중요한
+ * 정보이므로 판정 점수와 무관하게 항상 보여준다. urlscan이 실제 화면을 못
+ * 봤어도(target_unreachable) VT의 카테고리 분류는 사이트에 접속하지 않고도
+ * 알 수 있는 정보라 그대로 유효하다.
+ */
+function buildCategoryEvidence(facts: ScanFacts): { icon: string; text: string } | null {
+  const categories = facts.virustotal?.categories ?? [];
+  if (categories.length === 0) return null;
+  return { icon: '🏷️', text: `여러 보안업체는 이 사이트를 "${categories.join(', ')}"(으)로 분류해뒀어요` };
+}
+
+/**
  * LLM 호출이 실패했을 때 사용하는 템플릿 폴백 (PRD 부록 C.5, 7.4).
  * score.ts가 계산한 신호를 그대로 근거로 보여준다.
  *
@@ -145,15 +167,23 @@ const UNREACHABLE_FALLBACK_TIPS = [
  * 이 경우에는 콘텐츠 자체가 부적절하다는 별도 문구를 사용한다.
  */
 export function buildFallbackExplanation(facts: ScanFacts, score: ScoreResult): LlmExplanation {
-  const evidence = score.signals.map((signal) => ({ icon: '•', text: signal.label }));
+  const categoryEvidence = buildCategoryEvidence(facts);
+  const evidence = [
+    ...score.signals.map((signal) => ({ icon: '•', text: signal.label })),
+    ...(categoryEvidence ? [categoryEvidence] : []),
+  ];
 
   if (facts.target_unreachable) {
     const hasRiskSignal = score.signals.length > 0;
+    const categories = facts.virustotal?.categories ?? [];
+    const categoryNote =
+      categories.length > 0 ? ` 보안업체들은 이 사이트를 "${categories.join(', ')}"(으)로 분류해왔어요.` : '';
+    const baseStory = hasRiskSignal
+      ? '지금은 이 주소로 들어가지지 않아요. 이미 차단됐거나 사라진 것 같아요. 다만 예전 기록을 보면 위험했던 사이트일 수 있으니, 이 링크는 누르지도 전달하지도 마세요.'
+      : '지금은 이 주소로 들어가지지 않아요. 이미 차단됐거나 사라진 것 같아요.';
     return {
       summary: '이미 사라졌거나 차단된 페이지예요',
-      story: hasRiskSignal
-        ? '지금은 이 주소로 들어가지지 않아요. 이미 차단됐거나 사라진 것 같아요. 다만 예전 기록을 보면 위험했던 사이트일 수 있으니, 이 링크는 누르지도 전달하지도 마세요.'
-        : '지금은 이 주소로 들어가지지 않아요. 이미 차단됐거나 사라진 것 같아요.',
+      story: baseStory + categoryNote,
       evidence: [{ icon: '🚫', text: '지금은 이 주소로 연결되지 않아요' }, ...evidence],
       tips: UNREACHABLE_FALLBACK_TIPS,
     };
