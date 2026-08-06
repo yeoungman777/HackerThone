@@ -11,8 +11,8 @@ import type { ScanResult } from "@/lib/types";
 
 type Status = "no-url" | "loading" | "done" | "error";
 
-// urlscan.io 폴링을 기다리는 서버(최대 90초)보다 넉넉하게 클라이언트 타임아웃을 잡는다.
-const FETCH_TIMEOUT_MS = 95_000;
+// 서버 쪽 최대 처리 시간(120초)보다 넉넉하게 클라이언트 타임아웃을 잡는다.
+const FETCH_TIMEOUT_MS = 130_000;
 const SECOND_STEP_DELAY_MS = 2500;
 
 function isNormalizeReason(value: unknown): value is NormalizeReason {

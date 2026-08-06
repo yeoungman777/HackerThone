@@ -6,8 +6,9 @@ import { calculateScore, detectBrandImpersonationHint } from '@/lib/score';
 import { generateExplanation } from '@/lib/llm';
 import type { ScanFacts, ScanResult } from '@/lib/types';
 
-// urlscan.io 폴링(최대 60초)을 안전하게 기다리기 위해 함수 실행 시간을 넉넉히 확보한다.
-export const maxDuration = 90;
+// urlscan.io 폴링(최대 60초)과 VirusTotal 폴링(최대 75초, 병렬 실행)에 이어지는
+// LLM 호출까지 안전하게 마칠 수 있도록 함수 실행 시간을 넉넉히 확보한다.
+export const maxDuration = 120;
 
 export async function POST(request: Request) {
   let body: unknown;

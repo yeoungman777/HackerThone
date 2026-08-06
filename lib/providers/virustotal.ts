@@ -6,7 +6,9 @@ import type { VirusTotalFacts } from '@/lib/types';
 const VT_BASE = 'https://www.virustotal.com/api/v3';
 // 무료 티어 레이트리밋(4회/분)을 지키기 위해 VT 호출 사이 최소 간격을 보장한다.
 const MIN_REQUEST_INTERVAL_MS = 15_000;
-const ANALYSIS_POLL_TIMEOUT_MS = 45_000;
+// 처음 제출되는 URL은 VT 분석이 45초 안에 끝나지 않는 경우가 많아(15초 간격 제한과 겹치면
+// 재시도가 2~3번밖에 안 됨) 매번 타임아웃으로 빠졌다. 75초로 늘려 5번 정도 재시도한다.
+const ANALYSIS_POLL_TIMEOUT_MS = 75_000;
 
 let lastRequestAt = 0;
 
