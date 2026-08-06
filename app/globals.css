@@ -1,5 +1,10 @@
 @import "tailwindcss";
 
+/* <html>에 .dark 클래스가 있을 때만 dark: 유틸리티가 적용된다. 이 클래스는
+   app/layout.tsx의 초기화 스크립트가 (저장된 설정 또는 OS 설정을 읽어) 붙여준다 —
+   OS 설정만 보는 media query 방식 대신, 설정 화면에서 수동으로 바꿀 수 있게 하기 위함. */
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
   --background: #ffffff;
   --foreground: #171717;
@@ -12,11 +17,9 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+:root.dark {
+  --background: #0a0a0a;
+  --foreground: #ededed;
 }
 
 body {
@@ -63,5 +66,24 @@ body {
   .animate-fill-reveal {
     animation: none;
     clip-path: inset(0 0 0 0);
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.25s ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-in {
+    animation: none;
   }
 }

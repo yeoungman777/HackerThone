@@ -87,16 +87,26 @@ export default function PushNotificationToggle() {
     }
   }
 
-  if (!supported) return null;
+  if (!supported) {
+    return (
+      <p className="rounded-xl border border-foreground/15 px-4 py-3 text-sm text-foreground/40">
+        이 브라우저는 알림을 지원하지 않아요
+      </p>
+    );
+  }
 
   return (
     <button
       type="button"
       onClick={subscriptionId ? disable : enable}
       disabled={loading}
-      className="text-xs text-foreground/40 underline underline-offset-4 disabled:opacity-50"
+      className={`w-full rounded-xl border px-4 py-3 text-sm font-medium transition disabled:cursor-wait disabled:opacity-60 ${
+        subscriptionId
+          ? "border-blue-600 bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300"
+          : "border-foreground/15"
+      }`}
     >
-      {subscriptionId ? "위험 사이트 알림 끄기" : "위험한 사이트 알림 받기"}
+      {subscriptionId ? "위험 사이트 알림 켜짐 (끄려면 누르세요)" : "위험한 사이트 알림 받기"}
     </button>
   );
 }

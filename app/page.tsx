@@ -4,7 +4,6 @@ import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { normalizeUrl, NORMALIZE_ERROR_MESSAGES } from "@/lib/normalize";
-import PushNotificationToggle from "@/components/PushNotificationToggle";
 
 export default function Home() {
   const router = useRouter();
@@ -81,13 +80,6 @@ export default function Home() {
       >
         검사 결과는 저장되지 않아요
       </p>
-
-      <div
-        className="animate-rise-in text-center"
-        style={{ animationDelay: "260ms" }}
-      >
-        <PushNotificationToggle />
-      </div>
     </div>
   );
 }
