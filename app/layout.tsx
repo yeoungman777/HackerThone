@@ -28,6 +28,14 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "CheckLink",
   description: "받은 링크, 누르기 전에 여기서 먼저 확인하세요",
+  appleWebApp: {
+    capable: true,
+    title: "CheckLink",
+    statusBarStyle: "default",
+  },
+  icons: {
+    apple: "/icon.jpg",
+  },
 };
 
 export default function RootLayout({
